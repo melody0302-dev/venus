@@ -1,0 +1,6 @@
+{
+  "name": "Venus 智算平台",
+  "description": "可定制化左侧导航栏与页面看板的Venus智算平台，支持菜单管理、可视化页面设计、及集成的第三方镜像仓库凭证配置与安全管理。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

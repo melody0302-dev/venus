@@ -2,6 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { RegistryCredential } from '../types';
 import { LucideIcon } from './LucideIcon';
 
+const maskUsername = (username: string): string => {
+  if (!username) return '';
+  if (username.length <= 6) {
+    if (username.length <= 2) {
+      return username;
+    }
+    return username[0] + '*'.repeat(username.length - 2) + username[username.length - 1];
+  }
+  return username.slice(0, 3) + '*'.repeat(username.length - 6) + username.slice(-3);
+};
+
 export function CredentialsManager() {
   // Local state for credentials list
   const [credentials, setCredentials] = useState<RegistryCredential[]>(() => {
@@ -91,6 +102,7 @@ export function CredentialsManager() {
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; msg: string } | null>(null);
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
   const [formUsernameError, setFormUsernameError] = useState('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Sync to local storage
   useEffect(() => {
@@ -223,9 +235,7 @@ export function CredentialsManager() {
 
   // Delete Credential
   const handleDelete = (id: string) => {
-    if (window.confirm('您确定要删除此镜像仓库凭证吗？')) {
-      setCredentials(credentials.filter(c => c.id !== id));
-    }
+    setDeleteConfirmId(id);
   };
 
   // Toggle Default setting directly from list
@@ -351,7 +361,8 @@ export function CredentialsManager() {
                     <th className="px-5 py-3.5">凭证名称</th>
                     <th className="px-5 py-3.5">镜像仓库地址</th>
                     <th className="px-5 py-3.5">凭证类型</th>
-                    <th className="px-5 py-3.5">用户名 / AccessKey</th>
+                    <th className="px-5 py-3.5">开启代理</th>
+                    <th className="px-5 py-3.5">用户名</th>
                     <th className="px-5 py-3.5">更新时间</th>
                     <th className="px-5 py-3.5 text-center">默认凭证</th>
                     <th className="px-5 py-3.5">状态</th>
@@ -369,16 +380,9 @@ export function CredentialsManager() {
                           {cred.id}
                         </td>
 
-                        {/* Name & Details */}
-                        <td className="px-5 py-3.5 max-w-[180px]">
-                          <div className="font-bold text-slate-800 mb-0.5">{cred.name}</div>
-                          {cred.description ? (
-                            <div className="text-[10px] text-slate-400 line-clamp-1" title={cred.description}>
-                              {cred.description}
-                            </div>
-                          ) : (
-                            <div className="text-[10px] text-slate-350 italic">暂无描述</div>
-                          )}
+                        {/* Name */}
+                        <td className="px-5 py-3.5 max-w-[180px]" title={cred.name}>
+                          <div className="font-bold text-slate-800 truncate">{cred.name}</div>
                         </td>
 
                         {/* Registry URL */}
@@ -393,22 +397,18 @@ export function CredentialsManager() {
                         </td>
 
                         {/* Credential Type */}
-                        <td className="px-5 py-3.5">
-                          {cred.type === 'password' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 font-bold text-[10px]">
-                              密码凭证
-                            </span>
-                          )}
-                          {cred.type === 'token' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100 font-bold text-[10px]">
-                              Token 令牌
-                            </span>
-                          )}
+                        <td className="px-5 py-3.5 text-slate-700 font-medium">
+                          {cred.type === 'password' ? '密码凭证' : 'Token 令牌'}
                         </td>
 
-                        {/* Username / AK */}
+                        {/* Enable Proxy */}
+                        <td className="px-5 py-3.5 text-slate-700 font-medium">
+                          {cred.enableProxy ? '是' : '否'}
+                        </td>
+
+                        {/* Username */}
                         <td className="px-5 py-3.5 font-mono font-medium text-slate-700">
-                          {cred.username || <span className="text-slate-400 italic">空 (匿名)</span>}
+                          {cred.username ? maskUsername(cred.username) : <span className="text-slate-400 italic">空 (匿名)</span>}
                         </td>
 
                         {/* Update Time */}
@@ -420,62 +420,49 @@ export function CredentialsManager() {
                         <td className="px-5 py-3.5 text-center">
                           <button
                             onClick={() => handleToggleDefaultDirect(cred.id, cred.registryUrl)}
-                            className={`inline-flex items-center justify-center p-1 rounded-full transition-all cursor-pointer ${
+                            className={`text-xs font-semibold cursor-pointer transition-colors focus:outline-none hover:underline ${
                               cred.isDefault 
-                                ? 'text-emerald-500 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200' 
-                                : 'text-slate-300 bg-slate-50 hover:bg-slate-100 border border-slate-200'
+                                ? 'text-emerald-600 font-bold' 
+                                : 'text-slate-400 hover:text-slate-600'
                             }`}
-                            title={cred.isDefault ? '当前已设为默认凭证' : '设为默认凭证'}
+                            title={cred.isDefault ? '当前为默认凭证，点击可取消' : '点击设为默认凭证'}
                           >
-                            <LucideIcon name="Check" size={13} strokeWidth={3} />
+                            {cred.isDefault ? '是' : '否'}
                           </button>
                         </td>
 
                         {/* Status badge */}
                         <td className="px-5 py-3.5">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            cred.status === 'active' 
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-150' 
-                              : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          <span className={`font-semibold ${
+                            cred.status === 'active' ? 'text-emerald-600' : 'text-slate-400'
                           }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${cred.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                            {cred.status === 'active' ? '启用中' : '已禁用'}
+                            {cred.status === 'active' ? '有效' : '失效'}
                           </span>
                         </td>
 
                         {/* Actions */}
-                        <td className="px-5 py-3.5 text-right font-semibold">
-                          <div className="flex items-center justify-end gap-2.5">
+                        <td className="px-5 py-3.5 text-right font-semibold whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-3.5 whitespace-nowrap">
                             <button
                               onClick={() => handleTestConnection(cred.id, cred.registryUrl)}
                               disabled={isTesting}
-                              className={`text-[11px] font-bold px-2 py-1 rounded border transition-all flex items-center gap-1 cursor-pointer ${
+                              className={`font-bold transition-all hover:underline cursor-pointer whitespace-nowrap ${
                                 isTesting
-                                  ? 'bg-slate-50 border-slate-200 text-slate-400'
-                                  : 'bg-white border-slate-200 text-slate-600 hover:border-brand hover:text-brand hover:bg-brand-light/30'
+                                  ? 'text-slate-400'
+                                  : 'text-indigo-600 hover:text-indigo-850'
                               }`}
                             >
-                              {isTesting ? (
-                                <>
-                                  <span className="w-2.5 h-2.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></span>
-                                  测试中
-                                </>
-                              ) : (
-                                <>
-                                  <LucideIcon name="Cloud" size={11} />
-                                  测试
-                                </>
-                              )}
+                              {isTesting ? '测试中...' : '测试'}
                             </button>
                             <button 
                               onClick={() => handleOpenEdit(cred)}
-                              className="text-brand hover:text-brand-hover font-bold hover:underline transition-colors cursor-pointer"
+                              className="text-brand hover:text-brand-hover font-bold hover:underline transition-colors cursor-pointer whitespace-nowrap"
                             >
                               编辑
                             </button>
                             <button 
                               onClick={() => handleDelete(cred.id)}
-                              className="text-rose-500 hover:text-rose-700 font-bold hover:underline transition-colors cursor-pointer"
+                              className="text-rose-500 hover:text-rose-700 font-bold hover:underline transition-colors cursor-pointer whitespace-nowrap"
                             >
                               删除
                             </button>
@@ -487,7 +474,7 @@ export function CredentialsManager() {
 
                   {filteredCredentials.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-5 py-12 text-center text-slate-400 font-semibold bg-slate-50/20">
+                      <td colSpan={10} className="px-5 py-12 text-center text-slate-400 font-semibold bg-slate-50/20">
                         <div className="flex flex-col items-center justify-center">
                           <LucideIcon name="Shield" size={28} className="text-slate-300 mb-2" />
                           <p>暂无符合过滤条件的凭证数据</p>
@@ -508,7 +495,7 @@ export function CredentialsManager() {
             {/* Pagination / Total count footer */}
             <div className="bg-slate-50 border-t border-slate-200 px-5 py-3.5 flex items-center justify-between text-xs text-slate-500">
               <div className="font-semibold">
-                共 {filteredCredentials.length} 项，默认凭证对相同域名镜像服务自动优先生效。
+                共 {filteredCredentials.length} 项
               </div>
               <div className="flex items-center gap-1.5">
                 <button className="p-1 bg-white border border-slate-200 rounded text-slate-400 cursor-not-allowed">
@@ -814,6 +801,67 @@ export function CredentialsManager() {
             </div>
 
           </form>
+        </div>
+      )}
+
+      {/* 2. CUSTOM DELETE CONFIRMATION MODAL */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white border border-slate-250 rounded-xl shadow-xl w-full max-w-md p-6 mx-4 space-y-4 animate-scaleUp">
+            <div className="flex items-start gap-3">
+              <span className="p-2.5 bg-rose-50 border border-rose-100 text-rose-500 rounded-lg flex-shrink-0">
+                <LucideIcon name="Trash2" size={20} />
+              </span>
+              <div>
+                <h3 className="text-base font-bold text-slate-800">确认删除凭证？</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  您确定要删除此镜像仓库凭证吗？该操作会将凭证从本地持久化中安全移除，无法恢复。
+                </p>
+              </div>
+            </div>
+
+            {/* Credential Details to delete */}
+            {(() => {
+              const target = credentials.find(c => c.id === deleteConfirmId);
+              if (!target) return null;
+              return (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5 font-semibold">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">凭证 ID:</span>
+                    <span className="font-mono text-slate-700">{target.id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">凭证名称:</span>
+                    <span className="text-slate-800 font-bold">{target.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">镜像仓库地址:</span>
+                    <span className="font-mono text-slate-700">{target.registryUrl}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-4 py-2 border border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg text-xs font-bold transition-all cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCredentials(credentials.filter(c => c.id !== deleteConfirmId));
+                  setDeleteConfirmId(null);
+                }}
+                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

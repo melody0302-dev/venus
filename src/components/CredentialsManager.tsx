@@ -56,7 +56,7 @@ export function CredentialsManager() {
         id: '100003',
         name: '华为云商用镜像仓凭证',
         registryUrl: 'swr.cn-north-4.myhuaweicloud.com',
-        type: 'ak_sk',
+        type: 'token',
         username: 'AKIAIOSFODNN7EXAMPLE',
         password: '••••••••••••••••',
         isDefault: false,
@@ -75,12 +75,14 @@ export function CredentialsManager() {
   // Form Fields
   const [formName, setFormName] = useState('');
   const [formRegistryUrl, setFormRegistryUrl] = useState('');
-  const [formType, setFormType] = useState<'password' | 'token' | 'ak_sk'>('password');
+  const [formType, setFormType] = useState<'password' | 'token'>('password');
   const [formUsername, setFormUsername] = useState('');
   const [formPassword, setFormPassword] = useState('');
   const [formIsDefault, setFormIsDefault] = useState(false);
   const [formDescription, setFormDescription] = useState('');
   const [formStatus, setFormStatus] = useState<'active' | 'inactive'>('active');
+  const [formEnableProxy, setFormEnableProxy] = useState(false);
+  const [formProxyUrl, setFormProxyUrl] = useState('');
 
   // Interactive States
   const [searchQuery, setSearchQuery] = useState('');
@@ -128,6 +130,8 @@ export function CredentialsManager() {
     setFormIsDefault(false);
     setFormDescription('');
     setFormStatus('active');
+    setFormEnableProxy(false);
+    setFormProxyUrl('');
     setFormUsernameError('');
     setView('create');
   };
@@ -143,6 +147,8 @@ export function CredentialsManager() {
     setFormIsDefault(cred.isDefault);
     setFormDescription(cred.description || '');
     setFormStatus(cred.status);
+    setFormEnableProxy(cred.enableProxy || false);
+    setFormProxyUrl(cred.proxyUrl || '');
     setFormUsernameError('');
     setView('edit');
   };
@@ -184,7 +190,9 @@ export function CredentialsManager() {
         description: formDescription.trim(),
         status: formStatus,
         createdAt: formattedDate,
-        updatedAt: formattedDate
+        updatedAt: formattedDate,
+        enableProxy: formEnableProxy,
+        proxyUrl: formEnableProxy ? formProxyUrl.trim() : ''
       };
       updatedList.push(newCred);
     } else if (view === 'edit' && activeCredentialId) {
@@ -200,7 +208,9 @@ export function CredentialsManager() {
             isDefault: formIsDefault,
             description: formDescription.trim(),
             status: formStatus,
-            updatedAt: formattedDate
+            updatedAt: formattedDate,
+            enableProxy: formEnableProxy,
+            proxyUrl: formEnableProxy ? formProxyUrl.trim() : ''
           };
         }
         return c;
@@ -373,7 +383,13 @@ export function CredentialsManager() {
 
                         {/* Registry URL */}
                         <td className="px-5 py-3.5 font-mono text-slate-600">
-                          {cred.registryUrl}
+                          <div>{cred.registryUrl}</div>
+                          {cred.enableProxy && cred.proxyUrl && (
+                            <div className="text-[10px] text-brand font-semibold flex items-center gap-1 mt-1" title={`代理地址: ${cred.proxyUrl}`}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
+                              <span>代理: {cred.proxyUrl}</span>
+                            </div>
+                          )}
                         </td>
 
                         {/* Credential Type */}
@@ -386,11 +402,6 @@ export function CredentialsManager() {
                           {cred.type === 'token' && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100 font-bold text-[10px]">
                               Token 令牌
-                            </span>
-                          )}
-                          {cred.type === 'ak_sk' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100 font-bold text-[10px]">
-                              AK / SK 秘钥
                             </span>
                           )}
                         </td>
@@ -595,30 +606,12 @@ export function CredentialsManager() {
                 onChange={(e) => setFormRegistryUrl(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono text-slate-800 focus:outline-none focus:border-brand font-semibold"
               />
-              
-              {/* Autocomplete tags */}
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] text-slate-400 font-semibold mr-1">快捷填写:</span>
-                {popularRegistries.map((reg) => (
-                  <button
-                    key={reg.url}
-                    type="button"
-                    onClick={() => {
-                      setFormRegistryUrl(reg.url);
-                      if (!formName) setFormName(`${reg.label}凭证`);
-                    }}
-                    className="px-2 py-1 bg-slate-50 hover:bg-brand-light hover:text-brand border border-slate-200 hover:border-brand/30 rounded text-[10px] text-slate-500 font-medium transition-colors cursor-pointer"
-                  >
-                    {reg.label}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* 凭证类型 */}
             <div>
               <label className="block text-slate-600 font-bold mb-2">凭证类型 <span className="text-rose-500">*</span></label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 
                 {/* Password Type Card */}
                 <button
@@ -660,26 +653,6 @@ export function CredentialsManager() {
                   <span className="text-[10px] text-slate-400 mt-1">使用平台专用的 API Token，可设置精确到只读的临时访问权限。</span>
                 </button>
 
-                {/* AK_SK Type Card */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormType('ak_sk');
-                    setFormUsername('');
-                  }}
-                  className={`p-3 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                    formType === 'ak_sk'
-                      ? 'bg-brand-light border-brand shadow-[0_1px_4px_rgba(99,102,241,0.1)] text-brand'
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50/70'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 font-bold mb-1">
-                    <LucideIcon name="Shield" size={13} className={formType === 'ak_sk' ? 'text-brand' : 'text-slate-400'} />
-                    <span>AK / SK 凭证键值对</span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 mt-1">云服务商专用的 AccessKey / SecretKey 鉴权方式（如 AWS / 华为云 / 腾讯云）。</span>
-                </button>
-
               </div>
             </div>
 
@@ -690,11 +663,6 @@ export function CredentialsManager() {
                   {formType === 'password' && (
                     <>
                       用户名 <span className="text-rose-500">*</span>
-                    </>
-                  )}
-                  {formType === 'ak_sk' && (
-                    <>
-                      AccessKey ID (公钥) <span className="text-rose-500">*</span>
                     </>
                   )}
                   {formType === 'token' && <>用户名 / 账号名 (可选)</>}
@@ -709,8 +677,6 @@ export function CredentialsManager() {
                 placeholder={
                   formType === 'password'
                     ? "输入仓库用户名 (如 aliyun_developer)"
-                    : formType === 'ak_sk'
-                    ? "输入 AccessKey (如 LTAI5t7B...)"
                     : "一般令牌类型可不填，或填写关联账户"
                 }
                 value={formUsername}
@@ -739,11 +705,6 @@ export function CredentialsManager() {
                     Token (访问令牌) <span className="text-rose-500">*</span>
                   </>
                 )}
-                {formType === 'ak_sk' && (
-                  <>
-                    Secret Access Key (私钥) <span className="text-rose-500">*</span>
-                  </>
-                )}
               </label>
               <div className="relative">
                 <input
@@ -752,9 +713,7 @@ export function CredentialsManager() {
                   placeholder={
                     formType === 'password'
                       ? "输入仓库密码"
-                      : formType === 'token'
-                      ? "输入永久或临时的 API 令牌/密钥"
-                      : "输入云账号对应的 SecretKey"
+                      : "输入永久或临时的 API 令牌/密钥"
                   }
                   value={formPassword}
                   onChange={(e) => setFormPassword(e.target.value)}
@@ -787,6 +746,41 @@ export function CredentialsManager() {
                   </span>
                 </div>
               </label>
+            </div>
+
+            {/* 启用镜像拉取代理 (Enable Image Pull Proxy) */}
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formEnableProxy}
+                  onChange={(e) => setFormEnableProxy(e.target.checked)}
+                  className="mt-1 text-brand focus:ring-brand h-4 w-4 rounded border-slate-300 accent-indigo-600 cursor-pointer"
+                />
+                <div>
+                  <span className="block font-bold text-slate-800">启用镜像拉取代理</span>
+                  <span className="block text-[10px] text-slate-400 mt-0.5">
+                    开启后，拉取该镜像仓库中的镜像时将使用配置的代理服务，常用于解决国内拉取境外镜像源受限的问题。
+                  </span>
+                </div>
+              </label>
+
+              {formEnableProxy && (
+                <div className="pt-3 border-t border-slate-200 space-y-1.5">
+                  <label className="block text-slate-600 font-bold">
+                    代理地址 <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required={formEnableProxy}
+                    placeholder="例如: https://docker.m.daocloud.io 或 socks5://127.0.0.1:7890"
+                    value={formProxyUrl}
+                    onChange={(e) => setFormProxyUrl(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono text-slate-800 focus:outline-none focus:border-brand font-semibold"
+                  />
+                  <p className="text-[10px] text-slate-400">支持 HTTP/HTTPS/SOCKS5 代理协议，或第三方镜像加速源地址。</p>
+                </div>
+              )}
             </div>
 
             {/* 描述/备注 */}

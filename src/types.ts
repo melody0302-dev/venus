@@ -25,7 +25,7 @@ export interface RegistryCredential {
   id: string;
   name: string;
   registryUrl: string;
-  type: 'password' | 'token' | 'ak_sk';
+  type: 'password' | 'token';
   username: string;
   password: string;
   isDefault: boolean;
@@ -33,5 +33,7 @@ export interface RegistryCredential {
   status: 'active' | 'inactive';
   createdAt: string;
   updatedAt?: string;
+  enableProxy?: boolean;
+  proxyUrl?: string;
 }
 
